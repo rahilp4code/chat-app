@@ -15,13 +15,11 @@ export default function App() {
   });
 
   const [input, setInput] = useState("");
-  const [onlineUSer, setOnlineUsers] = useState([]);
+  // const [onlineUSer, setOnlineUsers] = useState([]);
   const [typingUsers, setTypingUsers] = useState(new Set());
 
-  // const [username, setUsername] = useState("Ehsaan");
-  // const [room, setRoom] = useState("general");
-
   const typingTimeoutRef = useRef(null);
+  const clientId = getClientId();
 
   const handleTyping = () => {
     socketRef.current.send(
@@ -49,7 +47,8 @@ export default function App() {
       socketRef.current.send(
         JSON.stringify({
           type: "join",
-          username: "ehsaan",
+          clientId,
+          username: "ash",
           room: "general",
         })
       );
@@ -58,9 +57,11 @@ export default function App() {
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
-      if (data.type === "users") {
-        setOnlineUsers(data.users);
-      } else if (data.type === "typing") {
+      // if (data.type === "users") {
+      //   setOnlineUsers(data.users);
+      // } else
+
+      if (data.type === "typing") {
         setTypingUsers((prev) => {
           const updated = new Set(prev);
           data.isTyping
@@ -85,6 +86,15 @@ export default function App() {
     );
     setInput("");
   };
+  function getClientId() {
+    let id = sessionStorage.getItem("clientId");
+    if (!id) {
+      id = crypto.randomUUID();
+      sessionStorage.setItem("clientId", id);
+    }
+    console.log(id);
+    return id;
+  }
 
   // useEffect(() => {
   //   const cachedMessages = localStorage.getItem("messages");

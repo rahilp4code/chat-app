@@ -2,31 +2,38 @@ import { WebSocketServer } from "ws";
 
 const wss = new WebSocketServer({ port: 8080 });
 
-const clients = new Set();
+/**
+ * rooms = Map<
+ *   roomName,
+ *   Map<
+ *     clientId,
+ *     { socket, username }
+ *   >
+ * >
+ */
 const rooms = new Map();
 
 console.log("✅ WebSocket server running on ws://localhost:8080");
 
 wss.on("connection", (socket) => {
-  clients.add(socket);
-  console.log("🟢 Client connected | Total:", clients.size);
-
   socket.on("message", (data) => {
-    let parsedMessage;
+    let msg;
 
     try {
-      parsedMessage = JSON.parse(data.toString());
-    } catch (err) {
-      console.log("❌ Invalid JSON");
-      console.log(err);
+      msg = JSON.parse(data.toString());
+    } catch {
       return;
     }
 
-    console.log("📩 Message object:", parsedMessage);
+    const { type } = msg;
 
-    if (parsedMessage.type === "join") {
-      const { username, room } = parsedMessage;
-      //   localStorage.setItem("user", JSON.stringify({ username, room })); no locale storage in backend
+    // =====================
+    // JOIN (with reconnect)
+    // =====================
+    if (type === "join") {
+      const { clientId, username, room } = msg;
+
+      socket.clientId = clientId;
       socket.username = username;
       socket.room = room;
 
@@ -34,45 +41,57 @@ wss.on("connection", (socket) => {
         rooms.set(room, new Map());
       }
 
-      rooms.get(room).set(socket, username);
-      //   rooms.get(room).add(socket);
+      const roomMap = rooms.get(room);
+      const existing = roomMap.get(clientId);
 
+      // 🔁 Reconnect
+      if (existing) {
+        existing.socket = socket;
+        broadcastUserList(room);
+        return;
+      }
+
+      // 🆕 New user
+      roomMap.set(clientId, { socket, username });
       broadcastUserList(room);
-      console.log(`🟢 ${username} joined ${room}`);
-      const systemMessage = {
+
+      broadcastToRoom(room, {
         type: "system",
         message: `${username} joined the room`,
-      };
-
-      for (const client of rooms.get(room).keys()) {
-        if (client.readyState === client.OPEN) {
-          client.send(JSON.stringify(systemMessage));
-        }
-      }
+      });
 
       return;
     }
-    if (parsedMessage.type === "chat") {
-      const room = socket.room;
 
+    // ============
+    // CHAT
+    // ============
+    if (type === "chat") {
+      const { room, clientId } = socket;
       if (!room || !rooms.has(room)) return;
 
-      for (const client of rooms.get(room).keys()) {
-        if (client !== socket && client.readyState === client.OPEN) {
-          client.send(JSON.stringify(parsedMessage));
+      for (const [id, entry] of rooms.get(room)) {
+        if (id !== clientId && entry.socket.readyState === entry.socket.OPEN) {
+          entry.socket.send(JSON.stringify(msg));
         }
       }
+      return;
     }
-    if (parsedMessage.type === "typing") {
-      const room = socket.room;
 
-      for (const client of rooms.get(room).keys()) {
-        if (client !== socket && client.readyState === client.OPEN) {
-          client.send(
+    // =================
+    // TYPING
+    // =================
+    if (type === "typing") {
+      const { room, clientId, username } = socket;
+      if (!room || !rooms.has(room)) return;
+
+      for (const [id, entry] of rooms.get(room)) {
+        if (id !== clientId && entry.socket.readyState === entry.socket.OPEN) {
+          entry.socket.send(
             JSON.stringify({
               type: "typing",
-              username: socket.username,
-              isTyping: parsedMessage.isTyping,
+              username,
+              isTyping: msg.isTyping,
             })
           );
         }
@@ -80,49 +99,57 @@ wss.on("connection", (socket) => {
     }
   });
 
+  // =====================
+  // DISCONNECT (graceful)
+  // =====================
   socket.on("close", () => {
-    const room = socket.room;
-    const username = socket.username;
-
+    const { room, clientId, username } = socket;
     if (!room || !rooms.has(room)) return;
 
     const roomMap = rooms.get(room);
 
-    roomMap.delete(socket);
-    broadcastUserList(room);
-
-    // Grace period to avoid refresh spam
+    // Grace period (refresh-safe)
     setTimeout(() => {
-      // Only send leave if user didn't rejoin
-      const stillInRoom = [...roomMap.values()].includes(username);
+      const entry = roomMap.get(clientId);
 
-      if (!stillInRoom) {
-        const leaveMessage = {
+      if (entry && entry.socket === socket) {
+        roomMap.delete(clientId);
+        broadcastUserList(room);
+
+        broadcastToRoom(room, {
           type: "system",
           message: `${username} left the room`,
-        };
-
-        for (const client of roomMap.keys()) {
-          if (client.readyState === client.OPEN) {
-            client.send(JSON.stringify(leaveMessage));
-          }
-        }
+        });
       }
     }, 2000);
   });
 });
 
-function broadcastUserList(room) {
-  const users = Array.from(rooms.get(room).values());
+// =====================
+// HELPERS
+// =====================
 
-  const payload = JSON.stringify({
+function broadcastUserList(room) {
+  const roomMap = rooms.get(room);
+  if (!roomMap) return;
+
+  const users = [...roomMap.values()].map((u) => u.username);
+
+  broadcastToRoom(room, {
     type: "users",
     users,
   });
+}
 
-  for (const client of rooms.get(room).keys()) {
-    if (client.readyState === client.OPEN) {
-      client.send(payload);
+function broadcastToRoom(room, payload) {
+  const roomMap = rooms.get(room);
+  if (!roomMap) return;
+
+  const data = JSON.stringify(payload);
+
+  for (const { socket } of roomMap.values()) {
+    if (socket.readyState === socket.OPEN) {
+      socket.send(data);
     }
   }
 }
