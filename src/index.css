@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =========================
+   THEME VARIABLES
+   ========================= */
+
+:root {
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --text: #0f172a;
+    --bubble: #e5e7eb;
+    --accent: #6366f1;
+}
+
+/* 🌞 LIGHT */
+.light {
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --text: #0f172a;
+    --bubble: #e5e7eb;
+    --accent: #6366f1;
+}
+
+/* 🌙 DARK */
+.dark {
+    --bg: #020617;
+    --panel: #020617cc;
+    --text: #e5e7eb;
+    --bubble: #1e293b;
+    --accent: #38bdf8;
+}
+
+/* 🌸 ROSE (Velora theme) */
+.rose {
+    --bg: #0b0205;
+    --panel: rgba(30, 10, 15, 0.65);
+    --text: #f5e9ec;
+    --bubble: rgba(255, 182, 193, 0.15);
+    --accent: #fda4af;
+}

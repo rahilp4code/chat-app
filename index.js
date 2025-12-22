@@ -1,144 +1,195 @@
+import http from "http";
 import { WebSocketServer } from "ws";
+import jwt from "jsonwebtoken";
 
-const wss = new WebSocketServer({ port: 8080 });
+const JWT_SECRET = "velora_super_secret";
+const disconnectTimers = new Map();
 
-/**
- * rooms = Map<
- *   roomName,
- *   Map<
- *     clientId,
- *     { socket, username }
- *   >
- * >
- */
+const server = http.createServer((req, res) => {
+  // 🔥 CORS HEADERS
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // Preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(200);
+    return res.end();
+  }
+
+  if (req.method === "POST" && req.url === "/login") {
+    let body = "";
+
+    req.on("data", (chunk) => (body += chunk));
+    // req.on("end", () => {
+    //   const { username } = JSON.parse(body);
+
+    //   if (!username) {
+    //     res.writeHead(400);
+    //     return res.end("Username required");
+    //   }
+
+    //   const token = jwt.sign({ username }, JWT_SECRET, {
+    //     expiresIn: "7d",
+    //   });
+
+    //   res.writeHead(200, { "Content-Type": "application/json" });
+    //   res.end(JSON.stringify({ token }));
+    // });
+    req.on("end", () => {
+      const { username, room } = JSON.parse(body);
+
+      if (!username || !room) {
+        res.writeHead(400);
+        return res.end("Username and room required");
+      }
+
+      const token = jwt.sign({ username, room }, JWT_SECRET, {
+        expiresIn: "7d",
+      });
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ token }));
+    });
+  }
+});
+
+const wss = new WebSocketServer({ server });
+server.listen(8080, () =>
+  console.log("✅ Server running on http://localhost:8080")
+);
+
 const rooms = new Map();
 
-console.log("✅ WebSocket server running on ws://localhost:8080");
+wss.on("connection", (socket, req) => {
+  const params = new URLSearchParams(req.url.replace("/?", ""));
+  const token = params.get("token");
 
-wss.on("connection", (socket) => {
+  if (!token) return socket.close();
+
+  let payload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return socket.close();
+  }
+
+  socket.username = payload.username;
+  socket.room = payload.room;
+
   socket.on("message", (data) => {
-    let msg;
+    const msg = JSON.parse(data.toString());
 
-    try {
-      msg = JSON.parse(data.toString());
-    } catch {
-      return;
-    }
+    // if (msg.type === "join") {
+    //   socket.room = msg.room;
 
-    const { type } = msg;
+    //   if (!rooms.has(socket.room)) {
+    //     rooms.set(socket.room, new Map());
+    //   }
 
-    // =====================
-    // JOIN (with reconnect)
-    // =====================
-    if (type === "join") {
-      const { clientId, username, room } = msg;
+    //   const roomMap = rooms.get(socket.room);
+    //   roomMap.set(socket.username, socket);
 
-      socket.clientId = clientId;
-      socket.username = username;
-      socket.room = room;
+    //   broadcastUserList(socket.room);
+
+    //   broadcastToRoom(socket.room, {
+    //     type: "system",
+    //     message: `${socket.username} joined the room`,
+    //   });
+    // }
+
+    if (msg.type === "join") {
+      const room = socket.room;
 
       if (!rooms.has(room)) {
         rooms.set(room, new Map());
       }
 
       const roomMap = rooms.get(room);
-      const existing = roomMap.get(clientId);
 
-      // 🔁 Reconnect
-      if (existing) {
-        existing.socket = socket;
-        broadcastUserList(room);
-        return;
+      // 🔁 Cancel pending disconnect (refresh-safe)
+      if (disconnectTimers.has(socket.username)) {
+        clearTimeout(disconnectTimers.get(socket.username));
+        disconnectTimers.delete(socket.username);
       }
 
-      // 🆕 New user
-      roomMap.set(clientId, { socket, username });
+      const isReconnect = roomMap.has(socket.username);
+
+      // Always update socket reference
+      roomMap.set(socket.username, socket);
+
       broadcastUserList(room);
 
-      broadcastToRoom(room, {
-        type: "system",
-        message: `${username} joined the room`,
+      // 🟢 Only announce if this is a REAL join
+      if (!isReconnect) {
+        broadcastToRoom(room, {
+          type: "system",
+          message: `${socket.username} joined ${room}`,
+        });
+      }
+    }
+
+    if (msg.type === "chat") {
+      broadcastToRoom(socket.room, {
+        type: "chat",
+        username: socket.username,
+        message: msg.message,
       });
-
-      return;
     }
 
-    // ============
-    // CHAT
-    // ============
-    if (type === "chat") {
-      const { room, clientId } = socket;
-      if (!room || !rooms.has(room)) return;
-
-      for (const [id, entry] of rooms.get(room)) {
-        if (id !== clientId && entry.socket.readyState === entry.socket.OPEN) {
-          entry.socket.send(JSON.stringify(msg));
-        }
-      }
-      return;
-    }
-
-    // =================
-    // TYPING
-    // =================
-    if (type === "typing") {
-      const { room, clientId, username } = socket;
-      if (!room || !rooms.has(room)) return;
-
-      for (const [id, entry] of rooms.get(room)) {
-        if (id !== clientId && entry.socket.readyState === entry.socket.OPEN) {
-          entry.socket.send(
-            JSON.stringify({
-              type: "typing",
-              username,
-              isTyping: msg.isTyping,
-            })
-          );
-        }
-      }
+    if (msg.type === "typing") {
+      broadcastToRoom(socket.room, {
+        type: "typing",
+        username: socket.username,
+        isTyping: msg.isTyping,
+      });
     }
   });
 
-  // =====================
-  // DISCONNECT (graceful)
-  // =====================
+  // socket.on("close", () => {
+  //   const roomMap = rooms.get(socket.room);
+  //   if (!roomMap) return;
+
+  //   roomMap.delete(socket.username);
+  //   broadcastUserList(socket.room);
+
+  //   broadcastToRoom(socket.room, {
+  //     type: "system",
+  //     message: `${socket.username} left the room`,
+  //   });
+  // });
+
   socket.on("close", () => {
-    const { room, clientId, username } = socket;
+    const { room, username } = socket;
     if (!room || !rooms.has(room)) return;
 
     const roomMap = rooms.get(room);
 
-    // Grace period (refresh-safe)
-    setTimeout(() => {
-      const entry = roomMap.get(clientId);
+    const timer = setTimeout(() => {
+      // 🛑 If user reconnected, skip delete
+      if (roomMap.get(username) !== socket) return;
 
-      if (entry && entry.socket === socket) {
-        roomMap.delete(clientId);
-        broadcastUserList(room);
+      roomMap.delete(username);
+      broadcastUserList(room);
 
-        broadcastToRoom(room, {
-          type: "system",
-          message: `${username} left the room`,
-        });
-      }
+      broadcastToRoom(room, {
+        type: "system",
+        message: `${username} left the room`,
+      });
+
+      disconnectTimers.delete(username);
     }, 2000);
+
+    disconnectTimers.set(username, timer);
   });
 });
-
-// =====================
-// HELPERS
-// =====================
 
 function broadcastUserList(room) {
   const roomMap = rooms.get(room);
   if (!roomMap) return;
 
-  const users = [...roomMap.values()].map((u) => u.username);
-
-  broadcastToRoom(room, {
-    type: "users",
-    users,
-  });
+  const users = [...roomMap.keys()];
+  broadcastToRoom(room, { type: "users", users });
 }
 
 function broadcastToRoom(room, payload) {
@@ -146,8 +197,7 @@ function broadcastToRoom(room, payload) {
   if (!roomMap) return;
 
   const data = JSON.stringify(payload);
-
-  for (const { socket } of roomMap.values()) {
+  for (const socket of roomMap.values()) {
     if (socket.readyState === socket.OPEN) {
       socket.send(data);
     }

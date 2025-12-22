@@ -1,149 +1,184 @@
 import { useEffect, useRef, useState } from "react";
+import Sidebar from "./components/Sidebar";
+import ChatHeader from "./components/ChatHeader";
+import MessageList from "./components/MessageList";
+import TypingIndicator from "./components/TypingIndicator";
+import ChatInput from "./components/ChatInput";
 
 export default function App() {
+  const currentUser = localStorage.getItem("velora-username");
+  const [token, setToken] = useState(localStorage.getItem("velora-token"));
+
+  // async function login(username) {
+  //   console.log("hii");
+  //   const res = await fetch("http://localhost:8080/login", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/json" },
+  //     body: JSON.stringify({ username }),
+  //   });
+
+  //   const data = await res.json();
+  //   localStorage.setItem("velora-token", data.token);
+  //   localStorage.setItem("velora-username", username);
+  //   setToken(data.token);
+  // }
+
+  async function login(username, room) {
+    const res = await fetch("http://localhost:8080/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username, room }),
+    });
+
+    const data = await res.json();
+    localStorage.setItem("velora-token", data.token);
+    localStorage.setItem("velora-username", username);
+    setToken(data.token);
+  }
+
   const socketRef = useRef(null);
-  // const [messages, setMessages] = useState([]);
-  // const [messages, setMessages] = useState(() => {
-  //   const cached = localStorage.getItem("messages");
-  //   return cached ? JSON.parse(cached) : [];
-  // });
-  const [messages, setMessages] = useState(() => {
-    const cached = localStorage.getItem("messages");
-    if (!cached) return [];
-
-    return JSON.parse(cached).filter((m) => m.type !== "system");
-  });
-
-  const [input, setInput] = useState("");
-  // const [onlineUSer, setOnlineUsers] = useState([]);
-  const [typingUsers, setTypingUsers] = useState(new Set());
-
   const typingTimeoutRef = useRef(null);
-  const clientId = getClientId();
+  const messagesEndRef = useRef(null);
 
-  const handleTyping = () => {
-    socketRef.current.send(
-      JSON.stringify({
-        type: "typing",
-        isTyping: true,
-      })
-    );
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("velora-theme") || "rose"
+  );
+  const [messages, setMessages] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [typingUsers, setTypingUsers] = useState(new Set());
+  const [input, setInput] = useState("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-    clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      socketRef.current.send(
-        JSON.stringify({
-          type: "typing",
-          isTyping: false,
-        })
-      );
-    }, 1000);
-  };
+  const room = "general";
 
+  // Theme
   useEffect(() => {
-    socketRef.current = new WebSocket("ws://localhost:8080");
+    document.documentElement.className = theme;
+    localStorage.setItem("velora-theme", theme);
+  }, [theme]);
+
+  // WebSocket
+  useEffect(() => {
+    if (!token) return;
+
+    socketRef.current = new WebSocket(`ws://localhost:8080?token=${token}`);
 
     socketRef.current.onopen = () => {
-      socketRef.current.send(
-        JSON.stringify({
-          type: "join",
-          clientId,
-          username: "ash",
-          room: "general",
-        })
-      );
+      socketRef.current.send(JSON.stringify({ type: "join", room }));
     };
 
     socketRef.current.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
-      // if (data.type === "users") {
-      //   setOnlineUsers(data.users);
-      // } else
+      if (data.type === "users") {
+        setOnlineUsers(data.users);
+        setTypingUsers(new Set());
+        return;
+      }
 
       if (data.type === "typing") {
         setTypingUsers((prev) => {
-          const updated = new Set(prev);
-          data.isTyping
-            ? updated.add(data.username)
-            : updated.delete(data.username);
-          return updated;
+          const next = new Set(prev);
+          data.isTyping ? next.add(data.username) : next.delete(data.username);
+          return next;
         });
-      } else {
-        setMessages((prev) => [...prev, data]);
+        return;
       }
+
+      // setMessages((prev) => [...prev, data]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          ...data,
+          self: data.username === currentUser,
+        },
+      ]);
     };
 
-    return () => socketRef.current.close();
-  }, []);
+    return () => socketRef.current?.close();
+  }, [token]);
 
+  // Auto-scroll
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Send message
   const sendMessage = () => {
-    socketRef.current.send(
-      JSON.stringify({
-        type: "chat",
-        message: input,
-      })
-    );
+    if (!input.trim()) return;
+
+    socketRef.current.send(JSON.stringify({ type: "chat", message: input }));
     setInput("");
   };
-  function getClientId() {
-    let id = sessionStorage.getItem("clientId");
-    if (!id) {
-      id = crypto.randomUUID();
-      sessionStorage.setItem("clientId", id);
-    }
-    console.log(id);
-    return id;
+
+  // Typing
+  const handleTyping = () => {
+    socketRef.current.send(JSON.stringify({ type: "typing", isTyping: true }));
+
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      socketRef.current.send(
+        JSON.stringify({ type: "typing", isTyping: false })
+      );
+    }, 800);
+  };
+
+  if (!token) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            login(e.target.username.value, e.target.room.value);
+          }}
+          className="rounded-xl bg-[var(--panel)] p-6"
+        >
+          <h2 className="mb-4 text-lg">Login to Velora</h2>
+          <input
+            name="username"
+            placeholder="Username"
+            className="mb-3 w-full rounded bg-white/10 p-2"
+          />
+          <input
+            name="room"
+            placeholder="Room name"
+            className="mb-3 w-full rounded bg-white/10 p-2"
+          />
+          <button className="w-full rounded bg-[var(--accent)] p-2 text-black">
+            Enter
+          </button>
+        </form>
+      </div>
+    );
   }
 
-  // useEffect(() => {
-  //   const cachedMessages = localStorage.getItem("messages");
-  //   const cachedUser = localStorage.getItem("user");
-
-  //   if (cachedMessages) {
-  //     setMessages(JSON.parse(cachedMessages));
-  //   }
-
-  //   if (cachedUser) {
-  //     const { username, room } = JSON.parse(cachedUser);
-  //     setUsername(username);
-  //     setRoom(room);
-  //   }
-  // }, []);
-
-  // useEffect(() => {
-  //   if (messages.length > 0) {
-  //     const trimmed = messages.slice(-50); // limit
-  //     localStorage.setItem("messages", JSON.stringify(trimmed));
-  //   }
-  // }, [messages]);
-
   return (
-    <div>
-      <h2>Chat</h2>
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      <div className="mx-auto flex h-screen max-w-7xl">
+        <Sidebar
+          onlineUsers={onlineUsers}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+        />
 
-      <div>
-        {messages.map((m, i) => (
-          <p key={i}>
-            {m.type === "system" ? "🟡 " : "💬 "}
-            {m.message}
-          </p>
-        ))}
-        <div>
-          {[...typingUsers].map((user) => (
-            <p key={user}>{user} is typing...</p>
-          ))}
-        </div>
+        <main className="flex flex-1 flex-col">
+          <ChatHeader
+            theme={theme}
+            setTheme={setTheme}
+            onMenu={() => setSidebarOpen(true)}
+          />
+
+          <MessageList messages={messages} messagesEndRef={messagesEndRef} />
+          <TypingIndicator typingUsers={typingUsers} />
+
+          <ChatInput
+            input={input}
+            setInput={setInput}
+            sendMessage={sendMessage}
+            handleTyping={handleTyping}
+          />
+        </main>
       </div>
-
-      <input
-        value={input}
-        onChange={(e) => {
-          setInput(e.target.value);
-          handleTyping();
-        }}
-      />
-      <button onClick={sendMessage}>Send</button>
     </div>
   );
 }
