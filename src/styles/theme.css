@@ -1,0 +1,17 @@
+:root {
+    --bg: #f8f9fb;
+    --panel: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: rgba(0, 0, 0, 0.08);
+    --accent: #3b82f6;
+}
+
+.dark {
+    --bg: #0b1220;
+    --panel: #111827;
+    --text: #e5e7eb;
+    --muted: #9ca3af;
+    --border: rgba(255, 255, 255, 0.08);
+    --accent: #60a5fa;
+}

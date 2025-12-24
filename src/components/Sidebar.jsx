@@ -1,30 +1,29 @@
-// export default function Sidebar({ onlineUsers, isOpen, onClose }) {
-//   return (
-//     <>
-//       {/* Overlay */}
-//       {isOpen && (
-//         <div
-//           onClick={onClose}
-//           className="fixed inset-0 z-40 bg-black/40 md:hidden"
-//         />
-//       )}
+// src/components/Sidebar.jsx
+import React from "react";
 
-//       <aside
-//         className={`fixed z-50 h-full w-72 transform border-r border-white/10 bg-[var(--panel)] p-4 transition-transform md:static md:translate-x-0
-//         ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
-//       >
-//         <h1 className="mb-6 text-xl font-semibold">Velora</h1>
+// 🔹 Avatar color generator
+function avatarColor(name) {
+  const colors = [
+    "from-pink-500 to-rose-500",
+    "from-indigo-500 to-purple-500",
+    "from-cyan-500 to-blue-500",
+    "from-emerald-500 to-teal-500",
+    "from-orange-500 to-amber-500",
+  ];
+  return colors[name.charCodeAt(0) % colors.length];
+}
 
-//         <div className="mb-2 text-xs opacity-60">Online</div>
-//         <div className="space-y-1 text-sm">
-//           {onlineUsers.map((u) => ({
-//            <div key={u}>{u}</div>
-//            }))}
-//         </div>
-//       </aside>
-//     </>
-//   );
-// }
+// 🔹 Avatar component
+function Avatar({ name }) {
+  return (
+    <div
+      className={`flex h-9 w-9 items-center justify-center rounded-full
+      bg-gradient-to-br ${avatarColor(name)} text-sm font-semibold text-white`}
+    >
+      {name[0].toUpperCase()}
+    </div>
+  );
+}
 
 export default function Sidebar({ onlineUsers, isOpen, onClose }) {
   return (
@@ -66,8 +65,3 @@ export default function Sidebar({ onlineUsers, isOpen, onClose }) {
     </>
   );
 }
-
-// lets do this:
-// Message timestamps (on hover)
-// Reactions ❤️ 👍
-// Sounds

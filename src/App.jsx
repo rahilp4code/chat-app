@@ -9,20 +9,6 @@ export default function App() {
   const currentUser = localStorage.getItem("velora-username");
   const [token, setToken] = useState(localStorage.getItem("velora-token"));
 
-  // async function login(username) {
-  //   console.log("hii");
-  //   const res = await fetch("http://localhost:8080/login", {
-  //     method: "POST",
-  //     headers: { "Content-Type": "application/json" },
-  //     body: JSON.stringify({ username }),
-  //   });
-
-  //   const data = await res.json();
-  //   localStorage.setItem("velora-token", data.token);
-  //   localStorage.setItem("velora-username", username);
-  //   setToken(data.token);
-  // }
-
   async function login(username, room) {
     const res = await fetch("http://localhost:8080/login", {
       method: "POST",
@@ -85,11 +71,11 @@ export default function App() {
         return;
       }
 
-      // setMessages((prev) => [...prev, data]);
       setMessages((prev) => [
         ...prev,
         {
           ...data,
+          ts: data.ts || Date.now(),
           self: data.username === currentUser,
         },
       ]);
@@ -121,6 +107,22 @@ export default function App() {
         JSON.stringify({ type: "typing", isTyping: false })
       );
     }, 800);
+  };
+
+  const addReaction = (index, emoji) => {
+    setMessages((prev) =>
+      prev.map((msg, i) => {
+        if (i !== index) return msg;
+
+        return {
+          ...msg,
+          reactions: {
+            ...(msg.reactions || {}),
+            [emoji]: (msg.reactions?.[emoji] || 0) + 1,
+          },
+        };
+      })
+    );
   };
 
   if (!token) {
@@ -168,7 +170,11 @@ export default function App() {
             onMenu={() => setSidebarOpen(true)}
           />
 
-          <MessageList messages={messages} messagesEndRef={messagesEndRef} />
+          <MessageList
+            messages={messages}
+            messagesEndRef={messagesEndRef}
+            addReaction={addReaction}
+          />
           <TypingIndicator typingUsers={typingUsers} />
 
           <ChatInput

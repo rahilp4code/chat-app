@@ -134,6 +134,7 @@ wss.on("connection", (socket, req) => {
         type: "chat",
         username: socket.username,
         message: msg.message,
+        ts: Date.now(),
       });
     }
 
