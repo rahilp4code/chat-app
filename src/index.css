@@ -19,7 +19,7 @@
    THEME VARIABLES
    ========================= */
 
-:root {
+/* :root {
     --bg: #f8fafc;
     --panel: #ffffff;
     --text: #0f172a;
@@ -29,22 +29,51 @@
 
 /* 🌞 LIGHT */
 .light {
-    --bg: #f8fafc;
+    --app-bg: #f4f6f8;
     --panel: #ffffff;
+    --panel-soft: #f8fafc;
+    --border: rgba(15, 23, 42, 0.08);
     --text: #0f172a;
-    --bubble: #e5e7eb;
-    --accent: #6366f1;
+    --muted: #64748b;
+    --accent: #2563eb;
 }
+
+:root {
+    --panel: #ffffff;
+    --panel-muted: #f3f4f6;
+    --border: #e5e7eb;
+
+    --bubble-self: #3b82f6;
+    --bubble-other: #eef2f7;
+
+    --text-primary: #111827;
+    --text-muted: #6b7280;
+}
+
+.dark {
+    --panel: #0b1220;
+    --panel-muted: #111827;
+    --border: rgba(255, 255, 255, 0.08);
+
+    --bubble-self: #3b82f6;
+    --bubble-other: #1f2937;
+    /* 🔑 THIS FIXES MERGING */
+
+    --text-primary: #e5e7eb;
+    --text-muted: #9ca3af;
+}
+
 
 /* 🌙 DARK */
-.dark {
-    --bg: #020617;
-    --panel: #020617cc;
+/* .dark {
+    --app-bg: #020617;
+    --panel: #020617;
+    --panel-soft: #020617;
+    --border: rgba(255, 255, 255, 0.08);
     --text: #e5e7eb;
-    --accent: #38bdf8;
-    --bubble: #1e293b;
-
-}
+    --muted: #94a3b8;
+    --accent: #60a5fa;
+} */
 
 /* 🌸 ROSE (Velora theme) */
 .rose {

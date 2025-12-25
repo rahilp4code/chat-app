@@ -1,25 +1,18 @@
-export default function ChatHeader({ theme, setTheme, onMenu }) {
+export default function ChatHeader() {
   return (
-    <header className="flex items-center justify-between border-b border-white/10 bg-[var(--panel)] px-4 py-3">
-      <div className="flex items-center gap-2">
-        <button
-          onClick={onMenu}
-          className="md:hidden rounded bg-white/10 px-2 py-1"
-        >
-          ☰
-        </button>
-        <div className="font-medium">General</div>
-      </div>
-
-      <select
-        value={theme}
-        onChange={(e) => setTheme(e.target.value)}
-        className="rounded bg-white/10 px-2 py-1 text-sm outline-none"
-      >
-        <option value="light">Light</option>
-        <option value="dark">Dark</option>
-        <option value="rose">Rose</option>
-      </select>
-    </header>
+    //   <header className="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
+    //     <h2 className="font-medium">General</h2>
+    //   </header>
+    <div
+      className="
+  h-14
+  flex items-center
+  px-6
+  border-b border-[var(--border)]
+  bg-[var(--panel)]
+"
+    >
+      <h2 className="font-medium">General</h2>
+    </div>
   );
 }

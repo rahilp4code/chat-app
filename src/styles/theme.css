@@ -1,17 +1,24 @@
 :root {
-    --bg: #f8f9fb;
+    --bg: #f8fafc;
+    /* page background */
     --panel: #ffffff;
+    /* cards / chat */
+    --panel-soft: #f1f5f9;
+    /* inputs */
     --text: #0f172a;
-    --muted: #64748b;
-    --border: rgba(0, 0, 0, 0.08);
+    /* main text */
+    --text-muted: #64748b;
+    --border: #e2e8f0;
     --accent: #3b82f6;
+    /* blue */
 }
 
 .dark {
-    --bg: #0b1220;
-    --panel: #111827;
+    --bg: #020617;
+    --panel: #0b1220;
+    --panel-soft: #111827;
     --text: #e5e7eb;
-    --muted: #9ca3af;
-    --border: rgba(255, 255, 255, 0.08);
-    --accent: #60a5fa;
+    --text-muted: #9ca3af;
+    --border: #1f2933;
+    --accent: #3b82f6;
 }

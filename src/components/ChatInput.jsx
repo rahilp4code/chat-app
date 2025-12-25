@@ -6,7 +6,7 @@ export default function ChatInput({
 }) {
   return (
     <footer className="flex items-center gap-2 border-t border-white/10 bg-[var(--panel)] p-4">
-      <div className="flex items-center gap-2 rounded-full bg-white/5 p-2">
+      <div className="flex items-center gap-3 w-full px-6 py-4 border-t border-[var(--border)]">
         <input
           value={input}
           onChange={(e) => {
@@ -15,13 +15,29 @@ export default function ChatInput({
           }}
           onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           placeholder="Say something soft…"
-          className="flex-1 bg-transparent px-4 py-2 outline-none"
-          // className="flex-1 rounded-full bg-white/10 px-4 py-2 text-sm outline-none"
-          //  text-sm text-black
+          className="
+    flex-1
+    px-4 py-3
+    rounded-full
+    bg-[var(--panel)]
+    text-[var(--text-primary)]
+    border border-[var(--border)]
+    focus:outline-none
+    focus:ring-2 focus:ring-blue-500/40
+  "
         />
         <button
           onClick={sendMessage}
-          className="rounded-full bg-[var(--accent)] px-4 py-2"
+          // className="rounded-full bg-[var(--accent)] px-4 py-2"
+          className="
+      px-5 py-2
+      rounded-full
+      bg-blue-500
+      text-white
+      font-medium
+      hover:bg-blue-600
+      transition
+    "
         >
           Send
         </button>
@@ -29,3 +45,55 @@ export default function ChatInput({
     </footer>
   );
 }
+
+// export default function ChatInput({ message, setMessage, sendMessage }) {
+//   return (
+//     <div
+//       className="
+//         w-full
+//         border-t border-[var(--border)]
+//         bg-[var(--panel)]
+//         px-6 py-4
+//       "
+//     >
+//       <form onSubmit={sendMessage} className="flex items-center gap-3">
+//         {/* Input */}
+//         <input
+//           type="text"
+//           value={message}
+//           onChange={(e) => setMessage(e.target.value)}
+//           placeholder="Say something soft..."
+//           className="
+//             flex-1
+//             rounded-full
+//             px-5 py-3
+//             text-sm
+//             bg-[var(--input)]
+//             text-[var(--text-primary)]
+//             placeholder:text-gray-400
+//             border border-[var(--border)]
+//             outline-none
+//             focus:ring-2 focus:ring-blue-500/40
+//             transition
+//           "
+//         />
+
+//         {/* Send button */}
+//         <button
+//           type="submit"
+//           className="
+//             rounded-full
+//             bg-blue-500
+//             px-5 py-3
+//             text-sm font-medium
+//             text-white
+//             hover:bg-blue-600
+//             transition
+//           "
+//         >
+//           Send
+//         </button>
+//       </form>
+//     </div>
+//   );
+// }
